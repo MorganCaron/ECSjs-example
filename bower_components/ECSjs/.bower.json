@@ -1,0 +1,14 @@
+{
+  "name": "ECSjs",
+  "homepage": "https://github.com/MorganCaron/ECSjs",
+  "_release": "63b775eace",
+  "_resolution": {
+    "type": "branch",
+    "branch": "master",
+    "commit": "63b775eace53ad44ec75404f8ef78299b125e42d"
+  },
+  "_source": "https://github.com/MorganCaron/ECSjs.git",
+  "_target": "*",
+  "_originalSource": "https://github.com/MorganCaron/ECSjs.git",
+  "_direct": true
+}
