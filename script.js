@@ -72,6 +72,11 @@ class Velocity2dComponent {
         this.vx *= vx;
         this.vy *= vy;
     }
+
+    mul(nb) {
+        this.vx *= nb;
+        this.vy *= nb;
+    }
 }
 
 class Gravity2dComponent {
@@ -95,6 +100,20 @@ class CircleComponent {
     init(radius, color) {
         this.radius = radius;
         this.color = color;
+    }
+}
+
+class Follow2dComponent {
+    constructor() {
+        this.tx = 0;
+        this.ty = 0;
+        this.easing = 1;
+    }
+
+    set(tx, ty, easing) {
+        this.tx = tx;
+        this.ty = ty;
+        this.easing = easing;
     }
 }
 
@@ -155,20 +174,25 @@ class CollisionSystem {
                 var other = circleEntities[j];
                 var distance = pointDistance(circle.position2dComponent.x, circle.position2dComponent.y, other.position2dComponent.x, other.position2dComponent.y);
                 var direction = pointDirection(circle.position2dComponent.x, circle.position2dComponent.y, other.position2dComponent.x, other.position2dComponent.y);
-                var circleAngle = pointDirection(circle.position2dComponent.x, circle.position2dComponent.y, circle.velocity2dComponent.vx, circle.velocity2dComponent.vy);
-                var otherAngle = pointDirection(other.position2dComponent.x, other.position2dComponent.y, other.velocity2dComponent.vx, other.velocity2dComponent.vy);
-                var circleSpeed = pointDistance(circle.position2dComponent.x, circle.position2dComponent.y, circle.velocity2dComponent.vx, circle.velocity2dComponent.vy);
-                var otherSpeed = pointDistance(other.position2dComponent.x, other.position2dComponent.y, other.velocity2dComponent.vx, other.velocity2dComponent.vy);
+                var circleAngle = pointDirection(0, 0, circle.velocity2dComponent.vx, circle.velocity2dComponent.vy);
+                var otherAngle = pointDirection(0, 0, other.velocity2dComponent.vx, other.velocity2dComponent.vy);
+                var circleSpeed = pointDistance(0, 0, circle.velocity2dComponent.vx, circle.velocity2dComponent.vy);
+                var otherSpeed = pointDistance(0, 0, other.velocity2dComponent.vx, other.velocity2dComponent.vy);
                 var padding = (circle.circleComponent.radius + other.circleComponent.radius) - distance;
                 if (padding > 0) {
                     circle.position2dComponent.add(-Math.cos(direction) * padding/2, -Math.sin(direction) * padding/2);
                     other.position2dComponent.add(Math.cos(direction) * padding/2, Math.sin(direction) * padding/2);
-                    /*
+
                     var newAngle = (direction + Math.PI) + (direction - circleAngle);
                     circle.velocity2dComponent.set(Math.cos(newAngle) * circleSpeed, Math.sin(newAngle) * circleSpeed);
                     var newAngle = direction + (direction - (otherAngle + Math.PI));
                     other.velocity2dComponent.set(Math.cos(newAngle) * otherSpeed, Math.sin(newAngle) * otherSpeed);
-                    */
+
+                    circle.position2dComponent.add(circle.velocity2dComponent.vx, circle.velocity2dComponent.vy);
+                    other.position2dComponent.add(other.velocity2dComponent.vx, other.velocity2dComponent.vy);
+
+                    circle.velocity2dComponent.mul(circle.velocity2dComponent.friction);
+                    other.velocity2dComponent.mul(other.velocity2dComponent.friction);
                 }
             }
             if (circle.position2dComponent.x < circle.circleComponent.radius) {
@@ -195,15 +219,12 @@ class CollisionSystem {
     }
 }
 
-class FollowMouseSystem {
+class FollowSystem {
     update(entities) {
-        var followMouseEntities = entities.queryTag('followMouse');
-        var canvasEntities = entities.queryComponent(CanvasComponent);
-        canvasEntities.forEach(function(canvas) {
-            followMouseEntities.forEach(function(followMouse) {
-                followMouse.velocity2dComponent.vx = canvas.canvasComponent.mouseX - followMouse.position2dComponent.x;
-                followMouse.velocity2dComponent.vy = canvas.canvasComponent.mouseY - followMouse.position2dComponent.y;
-            });
+        var followEntities = entities.queryComponent(Follow2dComponent);
+        followEntities.forEach(function(entity) {
+            entity.velocity2dComponent.set(entity.follow2dComponent.tx - entity.position2dComponent.x, entity.follow2dComponent.ty - entity.position2dComponent.y);
+            entity.velocity2dComponent.mul(entity.follow2dComponent.easing, entity.follow2dComponent.easing);
         });
     }
 }
@@ -214,7 +235,7 @@ class App {
 
         this.ecs.addSystems([
             CanvasSystem,
-            FollowMouseSystem,
+            FollowSystem,
             Gravity2dSystem,
             Velocity2dSystem,
             CollisionSystem,
@@ -227,23 +248,34 @@ class App {
         canvas.canvasComponent.element.addEventListener('mousemove', function(evt) {
             canvas.canvasComponent.updateMousePos(this, evt);
         }, false);
-        for (var i = 0; i < 20; i++) {
+
+        for (var i = 0; i < 100; i++) {
             var circle = this.ecs.entities.createEntity();
             circle.addComponents([Position2dComponent, Velocity2dComponent, CircleComponent, Gravity2dComponent]);
-            circle.position2dComponent.set(50 + (i % 10) * 50, 50 + Math.floor(i / 10) * 50);
+            circle.position2dComponent.set(50 + (i % 20) * 25, 50 + Math.floor(i / 20) * 25);
             circle.velocity2dComponent.set(Math.random() - .5, 0);
-            circle.velocity2dComponent.friction = .99;
-            circle.circleComponent.init(20, 'red');
+            circle.velocity2dComponent.friction = .95;
+            circle.circleComponent.init(10, 'orange');
             circle.gravity2dComponent.init(.7, 90);
         }
 
+        var circle = this.ecs.entities.createEntity();
+        circle.addComponents([Position2dComponent, Velocity2dComponent, Gravity2dComponent, CircleComponent]);
+        circle.position2dComponent.set(50, 50);
+        circle.velocity2dComponent.set(0, 0);
+        circle.velocity2dComponent.friction = .95;
+        circle.gravity2dComponent.init(.7, 90);
+        circle.circleComponent.init(20, 'blue');
+
         this.circle = this.ecs.entities.createEntity();
-        this.circle.addComponents([Position2dComponent, Velocity2dComponent, CircleComponent]);
         this.circle.addTag("followMouse");
-        this.circle.position2dComponent.set(50 + (i % 10) * 50, 50 + Math.floor(i / 10) * 50);
-        this.circle.velocity2dComponent.set(Math.random() - .5, 0);
-        this.circle.velocity2dComponent.friction = .99;
-        this.circle.circleComponent.init(20, 'blue');
+        this.circle.addComponents([Position2dComponent, Velocity2dComponent, Follow2dComponent, CircleComponent]);
+        this.circle.position2dComponent.set(30, 200);
+        this.circle.velocity2dComponent.set(0, 0);
+        this.circle.velocity2dComponent.friction = 1;
+        this.circle.follow2dComponent.set(30, 200, 1);
+        this.circle.circleComponent.init(20, 'green');
+
     }
 
     update() {
